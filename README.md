@@ -5,7 +5,7 @@ Most of these are my original designs.
 
 "Blue               : blue box analog design pased down from elsewhere and documented.
 
-LK_analog_redbox    : analog reb box design using XR2240 (LK designed)
+LK_analog_redbox    : analog red box design using XR2240 (LK designed)
 
 LK_8748             : "rainbow" box - white/silver/blue/red box + phone system sounds + speed dialer (LK designed)
                     : Uses Intel 8748 single chip microcontroller
