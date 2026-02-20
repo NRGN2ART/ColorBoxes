@@ -1,0 +1,730 @@
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 
+                      00002                 include "p16c5x.inc"
+                      00001         LIST
+                      00002 ; P16C5X.INC  Standard Header File, Version 4.00    Microchip Technology, Inc.
+                      00324         LIST
+                      00003 
+                      00004 ;*
+                      00005 ;* Sutekh Avatar Version 2.x
+                      00006 ;*
+                      00007 
+                      00008 ;* re-entered for MPLAB fixed bugs in early version
+                      00009 
+                      00010 ;* February 2026
+                      00011 
+                      00012 ;* device is Microchip PCI16C54-XT/P
+                      00013 ;* digikey PIC16C54-XT/P-ND
+                      00014 ;*
+                      00015 ;*              equates
+                      00016 ;*
+                      00017 
+                      00018 ;
+                      00019 ; registers
+                      00020 ;
+                      00021 
+  00000005            00022 buttons = 0x05  ; buttons on porta
+  00000006            00023 dac             = 0x06  ; dac is portb
+                      00024 
+  00000008            00025 t1c_hi  = 0x08          ; tone constants
+  00000009            00026 t1c_lo  = 0x09
+  0000000A            00027 t2c_hi  = 0x0a
+  0000000B            00028 t2c_lo  = 0x0b
+                      00029 
+  0000000C            00030 dur_hi  = 0x0c  ; tone duration registers
+  0000000D            00031 dur_lo  = 0x0d
+                      00032 
+  0000000E            00033 ph1_hi  = 0x0e  ; phase accumulation registers
+  0000000F            00034 ph1_lo  = 0x0f
+  00000010            00035 ph2_hi  = 0x10
+  00000011            00036 ph2_lo  = 0x11
+                      00037 
+  00000012            00038 pwreg0  = 0x12  ; circulating pw registers
+  00000013            00039 pwreg1  = 0x13
+  00000014            00040 pwreg2  = 0x14
+  00000015            00041 pwreg3  = 0x15
+                      00042 
+  00000016            00043 pulse   = 0x16
+  00000017            00044 secure  = 0x17
+  00000018            00045 digit   = 0x18
+                      00046 
+  0000001E            00047 temp    = 0x1e
+  0000001F            00048 scratch = 0x1f
+                      00049 
+                      00050 
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00051 ;
+                      00052 ; constants
+                      00053 ;
+                      00054 
+  00000011            00055 pass3   = 0x11
+  00000022            00056 pass2   = 0x22
+  00000021            00057 pass1   = 0x21
+  00000021            00058 pass0   = 0x21
+                      00059 
+                      00060 ; sine table
+                      00061 ;
+                      00062 ; this sine table is calculated for use with
+                      00063 ; an emitter follower amplifier
+                      00064 ;
+                      00065 ; the table includes a dc offset to insure that
+                      00066 ; there will be no clipping of the wave
+                      00067 ;
+                      00068 
+  0000004C            00069 sine0   = 0x4c  ;       76
+  0000005F            00070 sine1   = 0x5f  ;       95
+  0000006F            00071 sine2   = 0x6f  ;       111
+  0000007A            00072 sine3   = 0x7a  ;       122
+  0000007F            00073 sine4   = 0x7f  ;       127
+  0000007A            00074 sine5   = 0x7a  ;       122
+  0000006F            00075 sine6   = 0x6f  ;       111
+  0000005F            00076 sine7   = 0x5f  ;       95
+  0000004C            00077 sine8   = 0x4c  ;       76
+  00000039            00078 sine9   = 0x39  ;       57
+  00000029            00079 sine10  = 0x29  ;       41
+  0000001E            00080 sine11  = 0x1e  ;       30
+  0000001A            00081 sine12  = 0x1a  ;       26
+  0000001E            00082 sine13  = 0x1e  ;       30
+  00000029            00083 sine14  = 0x29  ;       41
+  00000039            00084 sine15  = 0x39  ;       57
+                      00085 
+  000000A5            00086 secval  = 0xA5
+  00000000            00087 nil             = 0
+                      00088 
+  00000016            00089 red1_hi = 0x016
+  000000DB            00090 red1_lo = 0x0DB
+  0000001D            00091 red2_hi = 0x01D
+  00000094            00092 red2_lo = 0x094
+                      00093 
+  0000000A            00094 dtmf770_hi = 0x0a
+  0000005A            00095 dtmf770_lo = 0x5a
+  00000010            00096 dtmf1209_hi = 0x10
+  00000041            00097 dtmf1209_lo = 0x41
+  00000011            00098 dtmf1336_hi = 0x11
+  000000F6            00099 dtmf1336_lo = 0xf6
+                      00100 
+  00000005            00101 ahi             = 0x05
+  000000EA            00102 alo             = 0xea
+  0000001B            00103 chi             = 0x1b
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  00000089            00104 clo             = 0x89
+  00000022            00105 ehi             = 0x22
+  0000006C            00106 elo             = 0x6c
+  00000029            00107 ghi             = 0x29
+  0000004E            00108 glo             = 0x4e
+                      00109 
+  00000002            00110 _15mshi = 0x02
+  0000001E            00111 _15mslo = 0x1e
+  00000003            00112 _33mshi = 0x03
+  00000074            00113 _33mslo = 0x74
+  00000005            00114 _66mshi = 0x05
+  000000E8            00115 _66mslo = 0xe8
+  00000026            00116 _500mslo = 0x26
+  00000027            00117 _500mshi = 0x27
+  00000095            00118 _2sechi = 0x95
+  000000C0            00119 _2seclo = 0xc0
+                      00120 
+01FF                  00121                         org 1FFH
+01FF   0A9B           00122 reset:          goto wake_up
+                      00123 
+0000                  00124                         org     0
+0000   0003           00125                         sleep
+                      00126 
+0001   0000           00127 twotone:        nop             ; generate two tones (loop time = 47 cycles)
+0002   0000           00128                         nop             ; at Fosc 3.579545 Hz T=52.520641 uS
+                      00129 
+0003   0004           00130 tt:                     clrwdt
+                      00131 
+0004   0209           00132                         movf    t1c_lo, w       ; advance phase for tone 1
+0005   01EF           00133                         addwf   ph1_lo, f
+0006   0208           00134                         movf    t1c_hi, w
+0007   0603           00135                         btfsc   STATUS, C
+0008   0288           00136                         incf    t1c_hi, w
+0009   01EE           00137                         addwf   ph1_hi, f
+                      00138                 
+000A   020B           00139                         movf    t2c_lo, w       ; advance phase fpr tone 2
+000B   01F1           00140                         addwf   ph2_lo, f
+000C   020A           00141                         movf    t2c_hi, w
+000D   0603           00142                         btfsc   STATUS, C
+000E   028A           00143                         incf    t2c_hi, w
+000F   01F0           00144                         addwf   ph2_hi, f
+                      00145 
+0010   020E           00146                         movf    ph1_hi, w       ; look up amplitudes
+0011   091C           00147                         call    ph2sin
+0012   003F           00148                         movwf   scratch
+0013   0210           00149                         movf    ph2_hi, w
+0014   091C           00150                         call    ph2sin
+0015   01DF           00151                         addwf   scratch, w      ; sum waves
+0016   0026           00152                         movwf   dac                     ; ship to dac
+                      00153                         
+0017   02ED           00154                         decfsz  dur_lo, f
+0018   0A01           00155                         goto    twotone
+0019   02EC           00156                         decfsz  dur_hi, f
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+001A   0A03           00157                         goto    tt                      ; jump short to make loop time consistent
+001B   0800           00158                         retlw   nil
+                      00159 
+001C   003E           00160 ph2sin:         movwf   temp
+001D   039E           00161                         swapf   temp, w
+001E   0E0F           00162                         andlw   #0FH
+001F   003E           00163                         movwf   temp
+0020   0C23           00164                         movlw   table
+0021   01DE           00165                         addwf   temp, w
+0022   0022           00166                         movwf   PCL                     ; computed goto
+                      00167 
+0023   084C           00168 table:          retlw   sine0
+0024   085F           00169                         retlw   sine1
+0025   086F           00170                         retlw   sine2
+0026   087A           00171                         retlw   sine3
+0027   087F           00172                         retlw   sine4
+0028   087A           00173                         retlw   sine5
+0029   086F           00174                         retlw   sine6
+002A   085F           00175                         retlw   sine7
+002B   084C           00176                         retlw   sine8
+002C   0839           00177                         retlw   sine9
+002D   0829           00178                         retlw   sine10
+002E   081E           00179                         retlw   sine11
+002F   081A           00180                         retlw   sine12
+0030   081E           00181                         retlw   sine13
+0031   0829           00182                         retlw   sine14
+0032   0839           00183                         retlw   sine15
+                      00184 
+                      00185 ; setup for musical A standard pitch 
+0033   0C05           00186 su_A:           movlw   ahi
+0034   0028           00187                         movwf   t1c_hi
+0035   0CEA           00188                         movlw   alo
+0036   0029           00189                         movwf   t1c_lo
+0037   006A           00190                         clrf    t2c_hi  ; single tone
+0038   006B           00191                         clrf    t2c_lo
+0039   0800           00192                         retlw   nil
+                      00193 
+                      00194 ; setup for musical C standard pitch 
+003A   0C1B           00195 su_C:           movlw   chi
+003B   0028           00196                         movwf   t1c_hi
+003C   0C89           00197                         movlw   clo
+003D   0029           00198                         movwf   t1c_lo
+003E   006A           00199                         clrf    t2c_hi  ; single tone
+003F   006B           00200                         clrf    t2c_lo
+0040   0800           00201                         retlw   nil
+                      00202 
+                      00203 ; setup for musical E standard pitch 
+0041   0C22           00204 su_E:           movlw   ehi
+0042   0028           00205                         movwf   t1c_hi
+0043   0C6C           00206                         movlw   elo
+0044   0029           00207                         movwf   t1c_lo
+0045   006A           00208                         clrf    t2c_hi  ; single tone
+0046   006B           00209                         clrf    t2c_lo
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0047   0800           00210                         retlw   nil
+                      00211 
+                      00212 ; setup for musical E standard pitch 
+0048   0C29           00213 su_G:           movlw   ghi
+0049   0028           00214                         movwf   t1c_hi
+004A   0C4E           00215                         movlw   glo
+004B   0029           00216                         movwf   t1c_lo
+004C   006A           00217                         clrf    t2c_hi  ; single tone
+004D   006B           00218                         clrf    t2c_lo
+004E   0800           00219                         retlw   nil
+                      00220 
+                      00221 
+                      00222 ; setup for major third interval
+004F   0C1B           00223 su_3rd:         movlw   chi
+0050   0028           00224                         movwf   t1c_hi
+0051   0C89           00225                         movlw   clo
+0052   0029           00226                         movwf   t1c_lo
+0053   0C22           00227                         movlw   ehi
+0054   002A           00228                         movwf   t2c_hi
+0055   0C6C           00229                         movlw   elo
+0056   002B           00230                         movwf   t2c_lo
+0057   0800           00231                         retlw   nil
+                      00232 
+                      00233 ; setup for major third interval
+0058   0C1B           00234 su_5th:         movlw   chi
+0059   0028           00235                         movwf   t1c_hi
+005A   0C89           00236                         movlw   clo
+005B   0029           00237                         movwf   t1c_lo
+005C   0C29           00238                         movlw   ghi
+005D   002A           00239                         movwf   t2c_hi
+005E   0C4E           00240                         movlw   glo
+005F   002B           00241                         movwf   t2c_lo
+0060   0800           00242                         retlw   nil
+                      00243 
+0061   0003           00244                         sleep
+                      00245 
+0062   0C16           00246 su_red:         movlw   red1_hi
+0063   0028           00247                         movwf   t1c_hi
+0064   0CDB           00248                         movlw   red1_lo
+0065   0029           00249                         movwf   t1c_lo
+0066   0C1D           00250                         movlw   red2_hi
+0067   002A           00251                         movwf   t2c_hi
+0068   0C94           00252                         movlw   red2_lo
+0069   002B           00253                         movwf   t2c_lo
+006A   0800           00254                         retlw   nil                     
+                      00255 
+006B   0C0A           00256 su_dtmf4:       movlw   dtmf770_hi
+006C   0028           00257                         movwf   t1c_hi
+006D   0C5A           00258                         movlw   dtmf770_lo
+006E   0029           00259                         movwf   t1c_lo
+006F   0C10           00260                         movlw   dtmf1209_hi
+0070   002A           00261                         movwf   t2c_hi
+0071   0C41           00262                         movlw   dtmf1209_lo
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0072   002B           00263                         movwf   t2c_lo
+0073   0800           00264                         retlw   nil             
+                      00265 
+0074   0C0A           00266 su_dtmf5:       movlw   dtmf770_hi
+0075   0028           00267                         movwf   t1c_hi
+0076   0C5A           00268                         movlw   dtmf770_lo
+0077   0029           00269                         movwf   t1c_lo
+0078   0C11           00270                         movlw   dtmf1336_hi
+0079   002A           00271                         movwf   t2c_hi
+007A   0CF6           00272                         movlw   dtmf1336_lo
+007B   002B           00273                         movwf   t2c_lo
+007C   0800           00274                         retlw   nil             
+                      00275 
+007D   0068           00276 su_wait:        clrf    t1c_hi
+007E   0069           00277                         clrf    t1c_lo
+007F   006A           00278                         clrf    t2c_hi
+0080   006B           00279                         clrf    t2c_lo
+0081   0800           00280                         retlw   nil
+                      00281 
+0082   0C02           00282 do_15:          movlw   _15mshi
+0083   002C           00283                         movwf   dur_hi
+0084   0C1E           00284                         movlw   _15mslo
+0085   002D           00285                         movwf   dur_lo
+0086   0A01           00286                         goto    twotone
+                      00287 
+0087   0C03           00288 do_33:          movlw   _33mshi
+0088   002C           00289                         movwf   dur_hi
+0089   0C74           00290                         movlw   _33mslo
+008A   002D           00291                         movwf   dur_lo
+008B   0A01           00292                         goto    twotone
+                      00293 
+008C   0C05           00294 do_66:          movlw   _66mshi
+008D   002C           00295                         movwf   dur_hi
+008E   0CE8           00296                         movlw   _66mslo
+008F   002D           00297                         movwf   dur_lo
+0090   0A01           00298                         goto    twotone
+                      00299 
+0091   0C27           00300 do_500:         movlw   _500mshi
+0092   002C           00301                         movwf   dur_hi
+0093   0C26           00302                         movlw   _500mslo
+0094   002D           00303                         movwf   dur_lo
+0095   0A01           00304                         goto    twotone
+                      00305 
+0096   0C95           00306 do_2sec:        movlw   _2sechi
+0097   002C           00307                         movwf   dur_hi
+0098   0CC0           00308                         movlw   _2seclo
+0099   002D           00309                         movwf   dur_lo
+009A   0A01           00310                         goto    twotone
+                      00311 
+009B                  00312 wake_up:
+009B   0040           00313                         clrw
+009C   0002           00314                         option
+                      00315 
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+009D   0645           00316                         btfsc   PORTA,2
+009E   0AFB           00317                         goto    test1
+009F   0665           00318                         btfsc   PORTA,3
+00A0   0B00           00319                         goto    test2
+                      00320 
+00A1   0217           00321                         movf    secure, w
+00A2   0FA5           00322                         xorlw   secval
+00A3   0643           00323                         btfsc   STATUS, Z
+00A4   0AE9           00324                         goto    armed
+                      00325 
+00A5   0605           00326 unarmed:        btfsc   PORTA, 0
+00A6   0AAA           00327                         goto    bump
+00A7   0625           00328                         btfsc   PORTA, 1
+00A8   0AB2           00329                         goto    enter
+00A9   0003           00330                         sleep
+                      00331 
+00AA   02B8           00332 bump:           incf    digit, f
+00AB   0040           00333                         clrw
+00AC   0006           00334                         tris    dac
+00AD   096B           00335                         call    su_dtmf4
+00AE   098C           00336                         call    do_66
+00AF   097D           00337                         call    su_wait
+00B0   098C           00338                         call    do_66
+00B1   0003           00339                         sleep
+                      00340         
+00B2   0C04           00341 enter:          movlw   4
+00B3   003E           00342                         movwf   temp
+00B4   0372           00343 r1:                     rlf             pwreg0, f
+00B5   0373           00344                         rlf             pwreg1, f
+00B6   0374           00345                         rlf             pwreg2, f
+00B7   0375           00346                         rlf             pwreg3, f
+00B8   02FE           00347                         decfsz  temp, f
+00B9   0AB4           00348                         goto    r1
+                      00349 
+00BA   0212           00350                         movf    pwreg0, w
+00BB   0EF0           00351                         andlw   0xf0
+00BC   0118           00352                         iorwf   digit, w
+00BD   0032           00353                         movwf   pwreg0
+00BE   0078           00354                         clrf    digit
+                      00355 
+00BF   0040           00356                         clrw
+00C0   0006           00357                         tris    dac             
+                      00358 
+00C1   0C04           00359 chkpw:          movlw   4
+00C2   003E           00360                         movwf   temp
+                      00361                         
+00C3   0212           00362                         movf    pwreg0, w
+00C4   0F21           00363                         xorlw   pass0
+00C5   0643           00364                         btfsc   STATUS, Z
+00C6   00FE           00365                         decf    temp, f
+                      00366 
+00C7   0213           00367                         movf    pwreg1, w
+00C8   0F21           00368                         xorlw   pass1
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00C9   0643           00369                         btfsc   STATUS, Z
+00CA   00FE           00370                         decf    temp, f 
+                      00371 
+00CB   0214           00372                         movf    pwreg2, w
+00CC   0F22           00373                         xorlw   pass2
+00CD   0643           00374                         btfsc   STATUS, Z
+00CE   00FE           00375                         decf    temp, f
+                      00376 
+00CF   0215           00377                         movf    pwreg3, w
+00D0   0F11           00378                         xorlw   pass3
+00D1   0643           00379                         btfsc   STATUS, Z
+00D2   00FE           00380                         decf    temp, f
+                      00381 
+00D3   0743           00382             btfss       STATUS, Z
+00D4   0AD6           00383                         goto    noway
+00D5   0ADC           00384                         goto    arm
+                      00385 
+00D6   0077           00386 noway:          clrf    secure
+00D7   0974           00387                         call    su_dtmf5
+00D8   098C           00388                         call    do_66
+00D9   097D           00389                         call    su_wait
+00DA   098C           00390                         call    do_66
+00DB   0003           00391                         sleep
+                      00392 
+00DC   0CA5           00393 arm:            movlw   secval
+00DD   0037           00394                         movwf   secure
+00DE   093A           00395                         call    su_C
+00DF   098C           00396                         call    do_66
+00E0   097D           00397                         call    su_wait
+00E1   098C           00398                         call    do_66
+00E2   0941           00399                         call    su_E
+00E3   098C           00400                         call    do_66
+00E4   097D           00401                         call    su_wait
+00E5   098C           00402                         call    do_66
+00E6   0948           00403                         call    su_G
+00E7   098C           00404                         call    do_66
+00E8   0003           00405                         sleep
+                      00406 
+00E9   0205           00407 armed:          movf    PORTA, W
+00EA   0F03           00408                         xorlw   0x03            ; both buttons down?
+00EB   0643           00409                         btfsc   STATUS, Z
+00EC   0AF2           00410                         goto    disarm
+                      00411 
+00ED   0605           00412                         btfsc   PORTA, 0
+00EE   0B10           00413                         goto    quarter
+00EF   0625           00414                         btfsc   PORTA, 1
+00F0   0B1C           00415                         goto    dime
+00F1   0003           00416                         sleep
+                      00417 
+00F2   0077           00418 disarm:         clrf    secure
+00F3   0072           00419                         clrf    pwreg0
+00F4   0073           00420                         clrf    pwreg1
+00F5   0074           00421                         clrf    pwreg2
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00F6   0075           00422                         clrf    pwreg3
+00F7   0078           00423                         clrf    digit
+00F8   0933           00424                         call    su_A
+00F9   098C           00425                         call    do_66
+00FA   0003           00426                         sleep
+                      00427 
+00FB   0040           00428 test1:          clrw
+00FC   0006           00429                         tris    dac
+00FD   0933           00430                         call    su_A
+00FE   0996           00431 t1:                     call    do_2sec
+00FF   0AFE           00432                         goto    t1
+                      00433 
+0100   0004           00434 test2:          clrwdt
+0101   0040           00435                         clrw
+0102   0006           00436                         tris    dac
+0103   02BE           00437                         incf    temp, f
+0104   021E           00438                         movf    temp, w
+0105   0026           00439                         movwf   dac
+0106   0000           00440                         nop
+0107   0000           00441                         nop
+0108   0000           00442                         nop
+0109   0000           00443                         nop
+010A   0000           00444                         nop
+010B   0000           00445                         nop
+010C   0000           00446                         nop
+010D   0000           00447                         nop
+010E   0B00           00448                         goto    test2
+                      00449 
+010F   0003           00450                         sleep                           ; stop any fall thru
+                      00451 
+0110   0040           00452 quarter:        clrw
+0111   0006           00453                         tris    dac
+0112   0C05           00454                         movlw   5
+0113   0036           00455                         movwf   pulse
+0114   0962           00456 qloop:          call    su_red
+0115   0987           00457                         call    do_33
+0116   097D           00458                         call    su_wait
+0117   0987           00459                         call    do_33
+0118   02F6           00460                         decfsz  pulse, f
+0119   0B14           00461                         goto    qloop
+011A   0991           00462                         call    do_500
+011B   0003           00463                         sleep
+                      00464 
+011C   0040           00465 dime:           clrw
+011D   0006           00466                         tris    dac
+011E   0C02           00467                         movlw   2
+011F   0036           00468                         movwf   pulse
+0120   0962           00469 dloop:          call    su_red
+0121   098C           00470                         call    do_66
+0122   097D           00471                         call    su_wait
+0123   098C           00472                         call    do_66
+0124   02F6           00473                         decfsz  pulse, f
+0125   0B20           00474                         goto    dloop           
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0126   0991           00475                         call    do_500
+0127   0003           00476                         sleep   
+                      00477 
+                      00478 
+                      00479 ;;;;;;;;;;;;;;;;;;;;
+                      00480                 end
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE 11
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+C                                 00000000
+DC                                00000001
+F                                 00000001
+FSR                               00000004
+INDF                              00000000
+NOT_PD                            00000003
+NOT_TO                            00000004
+PA0                               00000005
+PA1                               00000006
+PA2                               00000007
+PCL                               00000002
+PORTA                             00000005
+PORTB                             00000006
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+STATUS                            00000003
+T0CS                              00000005
+T0SE                              00000004
+TMR0                              00000001
+W                                 00000000
+Z                                 00000002
+_15mshi                           00000002
+_15mslo                           0000001E
+_2sechi                           00000095
+_2seclo                           000000C0
+_33mshi                           00000003
+_33mslo                           00000074
+_500mshi                          00000027
+_500mslo                          00000026
+_66mshi                           00000005
+_66mslo                           000000E8
+_CP_OFF                           00000FFF
+_CP_ON                            00000FF7
+_HS_OSC                           00000FFE
+_LP_OSC                           00000FFC
+_RC_OSC                           00000FFF
+_WDT_OFF                          00000FFB
+_WDT_ON                           00000FFF
+_XT_OSC                           00000FFD
+__16C54                           00000001
+__DEBUG                           1
+ahi                               00000005
+alo                               000000EA
+arm                               000000DC
+armed                             000000E9
+bump                              000000AA
+buttons                           00000005
+chi                               0000001B
+chkpw                             000000C1
+clo                               00000089
+dac                               00000006
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE 12
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+digit                             00000018
+dime                              0000011C
+disarm                            000000F2
+dloop                             00000120
+do_15                             00000082
+do_2sec                           00000096
+do_33                             00000087
+do_500                            00000091
+do_66                             0000008C
+dtmf1209_hi                       00000010
+dtmf1209_lo                       00000041
+dtmf1336_hi                       00000011
+dtmf1336_lo                       000000F6
+dtmf770_hi                        0000000A
+dtmf770_lo                        0000005A
+dur_hi                            0000000C
+dur_lo                            0000000D
+ehi                               00000022
+elo                               0000006C
+enter                             000000B2
+ghi                               00000029
+glo                               0000004E
+nil                               00000000
+noway                             000000D6
+pass0                             00000021
+pass1                             00000021
+pass2                             00000022
+pass3                             00000011
+ph1_hi                            0000000E
+ph1_lo                            0000000F
+ph2_hi                            00000010
+ph2_lo                            00000011
+ph2sin                            0000001C
+pulse                             00000016
+pwreg0                            00000012
+pwreg1                            00000013
+pwreg2                            00000014
+pwreg3                            00000015
+qloop                             00000114
+quarter                           00000110
+r1                                000000B4
+red1_hi                           00000016
+red1_lo                           000000DB
+red2_hi                           0000001D
+red2_lo                           00000094
+reset                             000001FF
+scratch                           0000001F
+secure                            00000017
+secval                            000000A5
+sine0                             0000004C
+sine1                             0000005F
+sine10                            00000029
+sine11                            0000001E
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE 13
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+sine12                            0000001A
+sine13                            0000001E
+sine14                            00000029
+sine15                            00000039
+sine2                             0000006F
+sine3                             0000007A
+sine4                             0000007F
+sine5                             0000007A
+sine6                             0000006F
+sine7                             0000005F
+sine8                             0000004C
+sine9                             00000039
+su_3rd                            0000004F
+su_5th                            00000058
+su_A                              00000033
+su_C                              0000003A
+su_E                              00000041
+su_G                              00000048
+su_dtmf4                          0000006B
+su_dtmf5                          00000074
+su_red                            00000062
+su_wait                           0000007D
+t1                                000000FE
+t1c_hi                            00000008
+t1c_lo                            00000009
+t2c_hi                            0000000A
+t2c_lo                            0000000B
+table                             00000023
+temp                              0000001E
+test1                             000000FB
+test2                             00000100
+tt                                00000003
+twotone                           00000001
+unarmed                           000000A5
+wake_up                           0000009B
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0100 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXX-------- ----------------
+01C0 : ---------------- ---------------- ---------------- ---------------X
+
+All other memory blocks unused.
+
+Program Memory Words Used:   297
+Program Memory Words Free:   215
+
+MPASM  5.51                       AVATAR2.ASM   2-20-2026  14:33:15         PAGE 14
+
+
+
+
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+
